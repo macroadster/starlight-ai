@@ -1,6 +1,6 @@
 {
   "track": "B",
-  "created_utc": "2026-08-14T03:10:19Z",
+  "created_utc": "2026-10-14T16:40:06Z",
   "llm_gguf": "model/qwen2.5-0.5b-instruct-q4_k_m.gguf",
   "llm_bytes": 491400032,
   "llm_sha256": "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
@@ -14,5 +14,5 @@
   "detector_gguf_exists": true,
   "look": "look.py",
   "system_prompt": "model/system_prompt.txt",
-  "note": "Track B: llama.cpp loads only the SLM GGUF. look.py runs the official BalancedStarlightDetector and injects the observation block."
+  "note": "Track B, rules v1.1: llama.cpp loads only the SLM GGUF. look.py runs models/starlight.gguf through Trin and injects a hint with status and method. The decoded secret is not in the prompt."
 }

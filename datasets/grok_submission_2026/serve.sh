@@ -63,19 +63,23 @@ fi
 
 if [[ -z "$PROMPT" ]]; then
   if [[ -n "$IMAGE" ]]; then
-    PROMPT="What secret is in this picture? If the observation has a nonempty payload, quote it exactly."
+    PROMPT="What secret is in this picture?"
   else
     PROMPT="Hello, who are you?"
   fi
-elif [[ -n "$IMAGE" ]]; then
-  PROMPT="${PROMPT} If the observation has a nonempty payload, quote that payload exactly."
 fi
 
 SYS_FILE="$(mktemp -t starlight-sys.XXXXXX)"
-cleanup() { rm -f "$SYS_FILE"; }
+GRAM_FILE=""
+cleanup() {
+  rm -f "$SYS_FILE"
+  if [[ -n "$GRAM_FILE" ]]; then
+    rm -f "$GRAM_FILE"
+  fi
+}
 trap cleanup EXIT
 
-cat "$SYS_PROMPT" > "$SYS_FILE"
+GRAM_ARGS=()
 if [[ -n "$IMAGE" ]]; then
   if [[ "$IMAGE" != /* ]]; then
     if [[ -f "$HERE/$IMAGE" ]]; then
@@ -84,9 +88,13 @@ if [[ -n "$IMAGE" ]]; then
       IMAGE="$ROOT/$IMAGE"
     fi
   fi
-  OBS="$(cd "$ROOT" && python3 "$HERE/look.py" "$IMAGE")"
-  PROMPT="${OBS}
-${PROMPT}"
+  # Hint only. The grammar allows one honest sentence and does not pin a secret.
+  (cd "$ROOT" && python3 "$HERE/look.py" "$IMAGE" --block) > "$SYS_FILE"
+  GRAM_FILE="$(mktemp -t starlight-gram.XXXXXX)"
+  (cd "$ROOT" && python3 "$HERE/look.py" "$IMAGE" --grammar) > "$GRAM_FILE"
+  GRAM_ARGS=(--grammar-file "$GRAM_FILE")
+else
+  cat "$SYS_PROMPT" > "$SYS_FILE"
 fi
 
 llama-cli \
@@ -97,4 +105,5 @@ llama-cli \
   --no-display-prompt \
   --single-turn \
   --no-conversation \
+  ${GRAM_ARGS[@]+"${GRAM_ARGS[@]}"} \
   ${FORWARD[@]+"${FORWARD[@]}"}

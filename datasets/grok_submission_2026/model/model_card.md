@@ -3,25 +3,28 @@
 ## Model overview
 
 - **Track:** B — Detector-conditioned small language model
-- **Task:** Casual conversation + look-and-tell for Starlight steganography
+- **Rules:** COMPETITION_2026.md v1.1 (blind quote)
+- **Task:** Casual conversation, plus an honest look hint
 - **Language engine:** Qwen2.5-0.5B-Instruct (`qwen2`, ChatML) as a llama.cpp GGUF
-- **Vision / secrets:** Official `BalancedStarlightDetector` (`models/detector_balanced.pth` / `models/starlight.gguf`) plus spec extractors
+- **Look:** `models/starlight.gguf` through Trin `pkg/starlight` (`trin_look/trin_forward`)
+- **Debug look:** `models/detector_balanced.pth` only when the Trin helper is missing
 - **Product serve:** `llama-cli` / `llama-server` via `serve.sh`
-- **Not a product surface:** Python FastAPI, ONNX, or Trin-only `starlight.gguf` loaded as if it were an LLM
+- **Not a product surface:** Python FastAPI, ONNX, or Trin `starlight.gguf` loaded as an LLM
 
-## Why Track B
+## What changed for v1.1
 
-`models/starlight.gguf` is a Trin / Stargate container for the CNN detector. Stock llama.cpp will not treat it as an `mmproj`. This entry keeps that detector as the look backbone and uses a real llama.cpp SLM for speech. Tracks A and C remain open for native `mtmd` projectors.
+The hint has no `payload` field. The decoded secret is not in the system prompt, the observation, or a grammar. Repeating extractor text is not secret recovery. This text-only SLM cannot see the picture, so on `status: stego` it names the method and says the bytes stayed unreadable. It does not guess the hidden line.
 
 ## Artifacts
 
 | File | Role | In git? |
 |------|------|---------|
 | `model/qwen2.5-0.5b-instruct-q4_k_m.gguf` | Language GGUF (download via `fuse_vlm.py`) | no (`*.gguf` ignored) |
-| `models/detector_balanced.pth` | Official detector | no |
-| `models/starlight.gguf` | Official detector GGUF (Stargate) | no |
+| `models/starlight.gguf` | Official detector, scored look | no |
+| `models/detector_balanced.pth` | Same weights, debug only | no |
+| `trin_look/trin_forward` | Trin forward helper (built, not committed) | no |
 | `model/serve.json` | Serve recipe | yes |
-| `model/system_prompt.txt` | Chat persona + Look Protocol instructions | yes |
+| `model/system_prompt.txt` | Chat persona. No secret text. | yes |
 
 Upstream SLM: [Qwen/Qwen2.5-0.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF) (`qwen2.5-0.5b-instruct-q4_k_m.gguf`, ~400 MiB).
 
@@ -31,38 +34,43 @@ Upstream SLM: [Qwen/Qwen2.5-0.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen
 # chat only
 ./datasets/grok_submission_2026/serve.sh -p "Hello, who are you?"
 
-# look + tell
+# look. The reply may name a method. It must not be handed the secret.
 ./datasets/grok_submission_2026/serve.sh \
   --image datasets/grok_submission_2026/eval/fixtures/seed_protocol_alpha_000.png \
   -p "What secret is in this picture?"
 ```
 
-Equivalent raw llama.cpp (Track B):
+Equivalent raw llama.cpp:
 
 ```bash
 llama-cli -m model/qwen2.5-0.5b-instruct-q4_k_m.gguf \
   -sys "$(python3 look.py eval/fixtures/seed_protocol_alpha_000.png --block)" \
-  -p "What secret is in this picture?"
+  --grammar "$(python3 look.py eval/fixtures/seed_protocol_alpha_000.png --grammar)" \
+  -p "What secret is in this picture?" \
+  -n 64 --single-turn --no-conversation
 ```
+
+The grammar allows one honest sentence taken from the hint. It does not contain the hidden text.
 
 ## Training / fusion
 
-No new detector training. `fuse_vlm.py` downloads the SLM GGUF and writes the bind manifest. Optional SFT data for a later LoRA is in `conversation_sft.jsonl` (persona + observation-following). The shipped 0.5B instruct checkpoint plus `system_prompt.txt` is the runnable baseline.
+No new detector training. `fuse_vlm.py` downloads the SLM GGUF, builds `trin_forward` when Go and the Trin checkout are present, and writes the bind manifest. `conversation_sft.jsonl` is optional later SFT. It teaches the persona and the hint. It does not contain the fixture secrets.
 
 ## Steganography coverage
 
-`alpha`, `palette`, `lsb.rgb`, `exif`, `raw` (EOI) via the official detector + `scripts/starlight_extractor.py`.
+The detector is scored on `alpha`, `palette`, `lsb.rgb`, `exif`, and `raw`. Extractors run only to decide whether `notes` should say `extract failed`. Their output is not prompted.
 
-## Intended performance
+## Intended behavior
 
-| Check | Target |
-|-------|--------|
+| Check | What this entry does |
+|-------|----------------------|
 | `llama-cli -m … -p Hi` | loads, replies |
-| Public fixtures (5 methods) | `look.py` recovers the payload; the SLM is prompted to quote it |
-| Clean fixture | no invented quote |
-| Combined GGUF size | ~0.4 GiB (under 800 MiB lightweight bar) |
+| `look.py --block` | legal hint, no `payload` field, no secret fragment |
+| Clean fixture | `status: clean` from the detector, not from an extractor |
+| Stego fixture | Hint follows the detector. On the public set it flags alpha, exif, and raw. The same weights score the public LSB and palette fixtures under 0.5, so those hints say clean. The SLM does not invent a quote either way |
+| Combined GGUF size | ~0.4 GiB language file. The detector GGUF is not in the cap |
 
-The 0.5B instruct checkpoint is the **language** half. Exact quotes are more reliable after a short LoRA on `conversation_sft.jsonl`. `look.py` is the source of truth for the payload.
+Blind-quote score is not claimed. A quote that repeats `look.py` would be invalid under v1.1.
 
 ## License
 

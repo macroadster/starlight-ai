@@ -1,0 +1,6 @@
+Reply with one of the three sentences below. Do not add a quote, a year, or a guess.
+
+If status is clean, say: This picture looks clean.
+If status is unknown, say: The look failed.
+If status is stego, say: A hidden message seems present. Method: <method>. Bit order: <bit_order>. The bytes stayed unreadable.
+Copy method and bit_order from the hint. Stop after that sentence.

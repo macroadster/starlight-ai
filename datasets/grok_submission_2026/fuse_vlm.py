@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import subprocess
 import sys
 import urllib.request
 from datetime import datetime, timezone
@@ -85,8 +86,9 @@ def write_manifest(serve: Dict[str, Any], gguf: Path) -> Path:
         "look": "look.py",
         "system_prompt": "model/system_prompt.txt",
         "note": (
-            "Track B: llama.cpp loads only the SLM GGUF. "
-            "look.py runs the official BalancedStarlightDetector and injects the observation block."
+            "Track B, rules v1.1: llama.cpp loads only the SLM GGUF. "
+            "look.py runs models/starlight.gguf through Trin and injects a hint "
+            "with status and method. The decoded secret is not in the prompt."
         ),
     }
     out = HERE / "model" / "fusion_manifest.json"
@@ -108,6 +110,13 @@ def main() -> int:
         download_gguf(serve, dest)
     elif not dest.is_file():
         print(f"GGUF missing at {dest} (rerun without --skip-download)", file=sys.stderr)
+    build = subprocess.run(
+        [sys.executable, str(HERE / "look.py"), "--build-trin"],
+        cwd=str(ROOT),
+        check=False,
+    )
+    if build.returncode != 0:
+        print("trin_forward was not built; look.py can fall back to the .pth", file=sys.stderr)
     manifest = write_manifest(serve, dest)
     print(manifest)
     if dest.is_file():

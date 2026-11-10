@@ -14,8 +14,9 @@
   "look": "look.py",
   "fuse": "fuse_vlm.py",
   "serve": {
-    "cli": "llama-cli -m {llm_gguf} -sys \"$(python3 look.py {image} --block)\" -p {prompt}",
-    "chat": "llama-cli -m {llm_gguf} --system-prompt-file model/system_prompt.txt -p {prompt}",
-    "server": "llama-server -m {llm_gguf} --port 8081"
+    "cli": "llama-cli -m {llm_gguf} -sys \"$(python3 look.py {image} --block)\" --grammar \"$(python3 look.py {image} --grammar)\" -p {prompt} -n 64 --single-turn --no-conversation",
+    "chat": "llama-cli -m {llm_gguf} --system-prompt-file model/system_prompt.txt -p {prompt} -n 128 --single-turn --no-conversation",
+    "server": "llama-server -m {llm_gguf} --port 8081",
+    "note": "v1.1: look.py --block is a hint. It must not contain the decoded payload."
   }
 }

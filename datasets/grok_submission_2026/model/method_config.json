@@ -1,6 +1,9 @@
 {
   "track": "B",
-  "look_protocol": "starlight_observation/v1",
+  "look_protocol": "starlight_observation/v1.1",
+  "payload_in_prompt": false,
+  "product_detector": "models/starlight.gguf",
+  "product_runtime": "trin pkg/starlight",
   "detector": {
     "class": "BalancedStarlightDetector",
     "pth": "models/detector_balanced.pth",
